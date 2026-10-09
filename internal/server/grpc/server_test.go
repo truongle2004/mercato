@@ -1,0 +1,90 @@
+package grpc
+
+import (
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/truongle2004/mercato-kit/logger"
+	"github.com/truongle2004/mercato-kit/validation"
+
+	"github.com/truongle2004/mercato/pkg/config"
+	dbMocks "github.com/truongle2004/mercato/pkg/dbs/mocks"
+	redisMocks "github.com/truongle2004/mercato/pkg/redis/mocks"
+)
+
+func init() {
+	logger.Initialize(config.ProductionEnv)
+}
+
+func TestNewServer(t *testing.T) {
+	mockDB := dbMocks.NewDatabase(t)
+	mockRedis := redisMocks.NewRedis(t)
+
+	server := NewServer(validation.New(), mockDB, mockRedis)
+	assert.NotNil(t, server)
+}
+
+func TestServer_Run(t *testing.T) {
+	mockDB := dbMocks.NewDatabase(t)
+	mockRedis := redisMocks.NewRedis(t)
+
+	server := NewServer(validation.New(), mockDB, mockRedis)
+
+	// Use port 0 so OS picks a free port
+	server.cfg.GrpcPort = 0
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.Run()
+	}()
+
+	// Let the server start
+	time.Sleep(20 * time.Millisecond)
+
+	// Stop the gRPC server
+	server.engine.Stop()
+
+	select {
+	case err := <-errCh:
+		assert.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Error("server did not stop in time")
+	}
+}
+
+func TestServer_Run_ListenError(t *testing.T) {
+	mockDB := dbMocks.NewDatabase(t)
+	mockRedis := redisMocks.NewRedis(t)
+
+	server := NewServer(validation.New(), mockDB, mockRedis)
+
+	// Use an invalid port to force net.Listen to fail
+	server.cfg.GrpcPort = -1
+
+	err := server.Run()
+	assert.Error(t, err)
+}
+
+func TestServer_Shutdown(t *testing.T) {
+	mockDB := dbMocks.NewDatabase(t)
+	mockRedis := redisMocks.NewRedis(t)
+
+	server := NewServer(validation.New(), mockDB, mockRedis)
+	server.cfg.GrpcPort = 0
+
+	runDone := make(chan error, 1)
+	go func() { runDone <- server.Run() }()
+
+	time.Sleep(50 * time.Millisecond)
+
+	// GracefulStop — exercise the Shutdown code path.
+	server.Shutdown()
+
+	select {
+	case err := <-runDone:
+		assert.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		t.Error("server did not exit after Shutdown")
+	}
+}
