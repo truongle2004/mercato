@@ -12,6 +12,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/truongle2004/mercato-kit/logger"
 	"github.com/truongle2004/mercato-kit/validation"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	_ "github.com/truongle2004/mercato/docs"
 	notificationHttp "github.com/truongle2004/mercato/internal/notification/port/http"
@@ -51,6 +52,8 @@ func (s *Server) Run() error {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	s.engine.Use(otelgin.Middleware(s.cfg.TelemetryServiceName))
+	s.engine.Use(middleware.RequestLogger())
 	s.engine.Use(middleware.CORS())
 	s.engine.Use(middleware.RateLimit(s.cache))
 

@@ -9,6 +9,12 @@ redis_uri: localhost:6379
 redis_password:
 redis_db: 0
 
+# OpenTelemetry tracing. Enable when an OTLP collector is available.
+telemetry_enabled: false
+telemetry_service_name: mercato
+telemetry_otlp_endpoint: localhost:4317
+telemetry_otlp_insecure: true
+
 # CORS / rate limiting (optional — defaults: "*", 100 req / 60s)
 cors_allowed_origins: "*"
 rate_limit_requests: 100

@@ -72,6 +72,9 @@ internal/{domain}/
 
 Docker Compose is used to run the local dependencies.
 
+The compose stack also includes Grafana, Loki, Tempo, and Alloy. Alloy collects
+container stdout/stderr logs and receives OTLP traces from the backend.
+
 ## Getting Started
 
 **1. Clone and configure**
@@ -144,6 +147,25 @@ Web UI: [http://localhost:3000](http://localhost:3000)
 **5. Browse the API**
 
 Swagger UI: [http://localhost:8888/swagger/index.html](http://localhost:8888/swagger/index.html)
+
+## Observability
+
+Start the complete local stack:
+
+```bash
+docker compose up --build
+```
+
+Grafana is available at [http://localhost:3000](http://localhost:3000) using
+`admin` / `admin` by default. Its provisioned Loki and Tempo data sources let
+you inspect container logs, search traces, and jump from an HTTP access log's
+`trace_id` to the corresponding trace. Override `GRAFANA_ADMIN_USER` and
+`GRAFANA_ADMIN_PASSWORD` before exposing Grafana beyond local development.
+
+For a backend running outside Compose, set `telemetry_enabled=true` and send
+OTLP/gRPC traces to `localhost:4317` while the observability containers run.
+Loki and Tempo are configured with local filesystem storage for development;
+use authenticated endpoints and durable object storage for production.
 
 ## API Reference
 

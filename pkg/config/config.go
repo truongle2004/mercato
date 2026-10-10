@@ -39,6 +39,11 @@ type Schema struct {
 	RedisPassword string `env:"redis_password"`
 	RedisDB       int    `env:"redis_db"`
 
+	TelemetryEnabled      bool   `env:"telemetry_enabled" envDefault:"false"`
+	TelemetryServiceName  string `env:"telemetry_service_name" envDefault:"mercato"`
+	TelemetryOTLPEndpoint string `env:"telemetry_otlp_endpoint" envDefault:"localhost:4317"`
+	TelemetryOTLPInsecure bool   `env:"telemetry_otlp_insecure" envDefault:"true"`
+
 	CORSAllowedOrigins     string `env:"cors_allowed_origins" envDefault:"*"`
 	RateLimitRequests      int    `env:"rate_limit_requests" envDefault:"100"`
 	RateLimitWindowSeconds int    `env:"rate_limit_window_seconds" envDefault:"60"`
