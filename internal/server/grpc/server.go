@@ -6,6 +6,7 @@ import (
 
 	"github.com/truongle2004/mercato-kit/logger"
 	"github.com/truongle2004/mercato-kit/validation"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
@@ -43,6 +44,7 @@ func NewServer(validator validation.Validation, db dbs.Database, cache redis.Red
 	}
 
 	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(
 			interceptor,
 		),

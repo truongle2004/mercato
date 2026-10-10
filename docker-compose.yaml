@@ -3,21 +3,103 @@ services:
     build: .
     ports:
       - "8888:8888"
+      - "8889:8889"
     environment:
-      port: 8888
+      http_port: 8888
+      grpc_port: 8889
       auth_secret: ${AUTH_SECRET:-auth_secret}
       database_uri: postgres://postgres:${POSTGRES_PASSWORD:-1234}@postgres:5432/postgres
       redis_uri: redis:6379
       redis_db: 0
+      telemetry_enabled: "true"
+      telemetry_service_name: mercato
+      telemetry_otlp_endpoint: alloy:4317
+      telemetry_otlp_insecure: "true"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      alloy:
+        condition: service_started
 
   redis:
-    image: "redis:alpine"
+    image: redis:alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   postgres:
     restart: always
-    image: "postgres:16-alpine"
+    image: postgres:16-alpine
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  loki:
+    image: grafana/loki:3.7.0
+    command: -config.file=/etc/loki/config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./deploy/observability/loki.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+
+  tempo:
+    image: grafana/tempo:3.1.0
+    command: -config.file=/etc/tempo/config.yaml
+    ports:
+      - "3200:3200"
+    volumes:
+      - ./deploy/observability/tempo.yaml:/etc/tempo/config.yaml:ro
+      - tempo-data:/var/tempo
+
+  alloy:
+    image: grafana/alloy:v1.12.0
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    ports:
+      - "12345:12345"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./deploy/observability/alloy.config:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    depends_on:
+      - loki
+      - tempo
+
+  grafana:
+    image: grafana/grafana:12.2.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./deploy/observability/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - loki
+      - tempo
+
+volumes:
+  alloy-data:
+  grafana-data:
+  loki-data:
+  postgres-data:
+  tempo-data:

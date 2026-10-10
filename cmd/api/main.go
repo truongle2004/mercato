@@ -18,6 +18,7 @@ import (
 	"github.com/truongle2004/mercato/pkg/dbs"
 	"github.com/truongle2004/mercato/pkg/eventbus"
 	"github.com/truongle2004/mercato/pkg/notification"
+	"github.com/truongle2004/mercato/pkg/observability"
 	"github.com/truongle2004/mercato/pkg/redis"
 )
 
@@ -41,6 +42,10 @@ import (
 func main() {
 	cfg := config.LoadConfig()
 	logger.Initialize(cfg.Environment)
+	shutdownTracing, err := observability.SetupTracing(context.Background(), cfg)
+	if err != nil {
+		logger.Fatal("Cannot initialize tracing", err)
+	}
 
 	db, err := dbs.NewDatabase(cfg.DatabaseURI)
 	if err != nil {
@@ -99,6 +104,9 @@ func main() {
 
 	if err := httpSvr.Shutdown(ctx); err != nil {
 		logger.Error("HTTP server forced to shutdown: ", err)
+	}
+	if err := shutdownTracing(ctx); err != nil {
+		logger.Error("Trace provider shutdown failed: ", err)
 	}
 
 	sweeperCancel()
